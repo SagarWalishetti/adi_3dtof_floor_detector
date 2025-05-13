@@ -129,34 +129,34 @@ void ADI3DToFFloorDetectorExample::compressedDepthImageCallback(
 /**
  * @brief Callback to ir image
  *
- * @param ir_image IR image message
+ * @param ab_image IR image message
  */
 void ADI3DToFFloorDetectorExample::irImageCallback(
-  const sensor_msgs::msg::Image::ConstSharedPtr & ir_image)
+  const sensor_msgs::msg::Image::ConstSharedPtr & ab_image)
 {
   // IR Image
-  if ((ir_image->width != image_width_) || (ir_image->height != image_height_)) {
+  if ((ab_image->width != image_width_) || (ab_image->height != image_height_)) {
     RCLCPP_INFO_STREAM(this->get_logger(), "IR image dimension is not matching with camera info.");
     return;
   }
   // Memory Allocation for ir image
-  if (ir_image_ == nullptr) {
-    ir_image_ = new unsigned short[image_width_ * image_height_ * 2];
+  if (ab_image_ == nullptr) {
+    ab_image_ = new unsigned short[image_width_ * image_height_ * 2];
   }
   // copy
-  memcpy(ir_image_, &ir_image->data[0], image_width_ * image_height_ * 2);
-  ir_image_recvd_ = true;
+  memcpy(ab_image_, &ab_image->data[0], image_width_ * image_height_ * 2);
+  ab_image_recvd_ = true;
 }
 
 /**
  * @brief Callback to compressed ir image
  *
- * @param compressed_ir_image Compressed ir image message
+ * @param compressed_ab_image Compressed ir image message
  */
 void ADI3DToFFloorDetectorExample::compressedIrImageCallback(
-  const sensor_msgs::msg::CompressedImage::ConstSharedPtr & compressed_ir_image)
+  const sensor_msgs::msg::CompressedImage::ConstSharedPtr & compressed_ab_image)
 {
-  if (compressed_ir_image == nullptr) {
+  if (compressed_ab_image == nullptr) {
     RCLCPP_INFO_STREAM(this->get_logger(), "Ir image is empty");
     return;
   }
@@ -171,13 +171,13 @@ void ADI3DToFFloorDetectorExample::compressedIrImageCallback(
   * */
 
   unsigned char * compressed_image_buf =
-    (unsigned char *)&compressed_ir_image
+    (unsigned char *)&compressed_ab_image
       ->data[sizeof(compressed_depth_image_transport::ConfigHeader) + 8];
 
-  unsigned int * image_width = (unsigned int *)&compressed_ir_image
+  unsigned int * image_width = (unsigned int *)&compressed_ab_image
                                  ->data[sizeof(compressed_depth_image_transport::ConfigHeader) + 0];
   unsigned int * image_height =
-    (unsigned int *)&compressed_ir_image
+    (unsigned int *)&compressed_ab_image
       ->data[sizeof(compressed_depth_image_transport::ConfigHeader) + 4];
 
   if ((*image_width != image_width_) || (*image_height != image_height_)) {
@@ -187,13 +187,13 @@ void ADI3DToFFloorDetectorExample::compressedIrImageCallback(
   }
 
   // Memory Allocation for depth image
-  if (ir_image_ == nullptr) {
-    ir_image_ = new unsigned short[image_width_ * image_height_ * 2];
+  if (ab_image_ == nullptr) {
+    ab_image_ = new unsigned short[image_width_ * image_height_ * 2];
   }
 
   // decompress
-  rvl.DecompressRVL(&compressed_image_buf[0], &ir_image_[0], image_width_ * image_height_);
-  ir_image_recvd_ = true;
+  rvl.DecompressRVL(&compressed_image_buf[0], &ab_image_[0], image_width_ * image_height_);
+  ab_image_recvd_ = true;
 }
 
 /**

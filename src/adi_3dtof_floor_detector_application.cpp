@@ -6,17 +6,17 @@ and its licensors.
 
 #include "adi_3dtof_floor_detector_node.h"
 //#include "ros-perception/image_transport_plugins/compressed_depth_image_transport/rvl_codec.h"
-#include <compressed_depth_image_transport/compression_common.h>
+#include "ros-perception/image_transport_plugins/compressed_depth_image_transport/compression_common.h"
 /**
  * @brief This function publishes depth image , ir image, point-cloud and camera info.
  *
  * @param depth_frame - Pointer to the depth frame buffer
- * @param ir_frame - Pointer to the ir frame buffer
+ * @param ab_frame - Pointer to the ir frame buffer
  * @param floor_mask_frame - Pointer to the Floor Mask buffer
  * @param xyz_frame - Pointer to the xyz frame buffer
  */
 void ADI3DToFFloorDetector::publishImageAndCameraInfo(
-  unsigned short * depth_frame, unsigned short * ir_frame, unsigned char * floor_mask_frame,
+  unsigned short * depth_frame, unsigned short * ab_frame, unsigned char * floor_mask_frame,
   short * xyz_frame)
 {
   // Publish image as Ros message
@@ -24,14 +24,14 @@ void ADI3DToFFloorDetector::publishImageAndCameraInfo(
 
   // convert to 16 bit depth and IR image of CV format.
   m_disp_image_depth = cv::Mat(image_height_, image_width_, CV_16UC1, depth_frame);
-  m_disp_image_ir = cv::Mat(image_height_, image_width_, CV_16UC1, ir_frame);
+  m_disp_image_ir = cv::Mat(image_height_, image_width_, CV_16UC1, ab_frame);
   m_disp_image_floor_mask = cv::Mat(image_height_, image_width_, CV_8UC1, floor_mask_frame);
 
   fillAndPublishCameraInfo(optical_camera_link_, depth_info_publisher_);
   // encoding type should not be mono as nodelet expects it to be in enc format
   // frame id should be the frame name not topic name
   publishImageAsRosMsg(m_disp_image_depth, "mono16", optical_camera_link_, depth_image_publisher_);
-  publishImageAsRosMsg(m_disp_image_ir, "mono16", optical_camera_link_, ir_image_publisher_);
+  publishImageAsRosMsg(m_disp_image_ir, "mono16", optical_camera_link_, ab_image_publisher_);
   publishImageAsRosMsg(
     m_disp_image_floor_mask, "mono8", optical_camera_link_, floor_mask_publisher_);
 
@@ -45,15 +45,15 @@ void ADI3DToFFloorDetector::publishImageAndCameraInfo(
  *
  * @param compressed_depth_frame Compressed depth image
  * @param compressed_depth_frame_size Compressed depth image size
- * @param compressed_ir_frame Compressed ir image
- * @param compressed_ir_frame_size Compressed ir image size
+ * @param compressed_ab_frame Compressed ir image
+ * @param compressed_ab_frame_size Compressed ir image size
  * @param compressed_floor_mask_frame Compressed floor mask image
  * @param compressed_floor_mask_frame_size Compressed floor mask image size
  * @param xyz_frame point cloud buffer
  */
 void ADI3DToFFloorDetector::publishImageAndCameraInfo(
   unsigned char * compressed_depth_frame, int compressed_depth_frame_size,
-  unsigned char * compressed_ir_frame, int compressed_ir_frame_size,
+  unsigned char * compressed_ab_frame, int compressed_ab_frame_size,
   unsigned char * compressed_floor_mask_frame, int compressed_floor_mask_frame_size,
   short * xyz_frame)
 {
@@ -64,8 +64,8 @@ void ADI3DToFFloorDetector::publishImageAndCameraInfo(
     compressed_depth_image_publisher_);
 
   publishCompressedImageAsRosMsg(
-    compressed_ir_frame, compressed_ir_frame_size, "mono16", optical_camera_link_,
-    compressed_ir_image_publisher_);
+    compressed_ab_frame, compressed_ab_frame_size, "mono16", optical_camera_link_,
+    compressed_ab_image_publisher_);
 
   publishCompressedImageAsRosMsg(
     compressed_floor_mask_frame, compressed_floor_mask_frame_size, "mono8", optical_camera_link_,
@@ -257,39 +257,39 @@ void ADI3DToFFloorDetector::publishPointCloud(short * xyz_frame)
  * @brief Gives output frame for floor detection video
  *
  * @param depth_frame_with_floor Original depth frame
- * @param ir_frame Original IR frame
+ * @param ab_frame Original IR frame
  * @param floor_mask_8bit Floor Mask
  * @return cv::Mat Final frame for Output Video
  */
 cv::Mat ADI3DToFFloorDetector::getFloorDetectionOutput(
-  unsigned short * depth_frame_with_floor, unsigned short * ir_frame,
+  unsigned short * depth_frame_with_floor, unsigned short * ab_frame,
   unsigned char * floor_mask_8bit)
 {
   // Gamma Correction for 16bit IR image
   for (int i = 0; i < (image_width_ * image_height_); i++) {
-    float read = (float)ir_frame[i];
+    float read = (float)ab_frame[i];
     float out_val = (float)(256.0f * log(read)) / log(2048.0f);
-    ir_frame[i] = (uint16_t)out_val;
+    ab_frame[i] = (uint16_t)out_val;
   }
 
   // Get 8bit IR image
   int max = 0, min = 65535;
   for (int i = 0; i < (image_width_ * image_height_); i++) {
-    if (ir_frame[i] > max) {
-      max = ir_frame[i];
+    if (ab_frame[i] > max) {
+      max = ab_frame[i];
     }
-    if (ir_frame[i] < min) {
-      min = ir_frame[i];
+    if (ab_frame[i] < min) {
+      min = ab_frame[i];
     }
   }
-  cv::Mat ir_image_8bit = cv::Mat::zeros(image_height_, image_width_, CV_8UC1);
+  cv::Mat ab_image_8bit = cv::Mat::zeros(image_height_, image_width_, CV_8UC1);
   for (int i = 0; i < (image_width_ * image_height_); i++) {
-    ir_image_8bit.data[i] = (ir_frame[i] - min) / (float)(max - min) * 255;
+    ab_image_8bit.data[i] = (ab_frame[i] - min) / (float)(max - min) * 255;
   }
 
   // Get rgb 8 bit ir image
-  cv::Mat ir_image_8bit_rgb = cv::Mat::zeros(image_height_, image_width_, CV_8UC3);
-  cv::cvtColor(ir_image_8bit, ir_image_8bit_rgb, cv::COLOR_GRAY2BGR);
+  cv::Mat ab_image_8bit_rgb = cv::Mat::zeros(image_height_, image_width_, CV_8UC3);
+  cv::cvtColor(ab_image_8bit, ab_image_8bit_rgb, cv::COLOR_GRAY2BGR);
 
   // convert 16bit depth image with floor to 8bit
   cv::Mat depth_image_16bit =
@@ -304,8 +304,8 @@ cv::Mat ADI3DToFFloorDetector::getFloorDetectionOutput(
   cv::cvtColor(depth_image_8bit, depth_image_8bit_rgb, cv::COLOR_GRAY2BGR);
 
   // Concatenation of input depth and IR images
-  cv::Mat ir_depth_op_image = cv::Mat::zeros(cv::Size(image_width_ * 2, image_height_), CV_8UC3);
-  cv::hconcat(ir_image_8bit_rgb, depth_image_8bit_rgb, ir_depth_op_image);
+  cv::Mat ab_depth_op_image = cv::Mat::zeros(cv::Size(image_width_ * 2, image_height_), CV_8UC3);
+  cv::hconcat(ab_image_8bit_rgb, depth_image_8bit_rgb, ab_depth_op_image);
 
   // Get floor marked output
   cv::Mat floor_mask_8bit_image = cv::Mat(image_height_, image_width_, CV_8UC1, floor_mask_8bit);
@@ -321,7 +321,7 @@ cv::Mat ADI3DToFFloorDetector::getFloorDetectionOutput(
 
   // Concatenate floor detection output
   cv::Mat final_out_image = cv::Mat::zeros(cv::Size(image_width_ * 3, image_height_), CV_8UC3);
-  cv::hconcat(ir_depth_op_image, depth_image_8bit_rgb, final_out_image);
+  cv::hconcat(ab_depth_op_image, depth_image_8bit_rgb, final_out_image);
 
   return final_out_image;
 }

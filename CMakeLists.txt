@@ -35,6 +35,8 @@ find_package(tf2_eigen REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
 
+set(SENSOR_CONNECTED TRUE CACHE BOOL "Indicates if the sensor is connected to the platform")
+
 # add include files as per PCL version installed
 if(${PCL_VERSION} VERSION_EQUAL 1.10.0)
   include_directories(include_floor_plane_detection/pcl_1_10_0)
@@ -53,12 +55,6 @@ if(CMAKE_BUILD_TYPE)
     #To verify NEON optimizations
     #add_compile_definitions(ENABLE_NEON_OPTIMIZATION_VERIFICATION)
   endif()
-endif()
-
-# host specific build command
-if(NOT HOST_BUILD)
-  message(WARNING "If the package is being built on the TOF module, ignore this warning; otherwise, use the command below to build the package on the host.
-  catkin_make -DCMAKE_BUILD_TYPE=Release -DHOST_BUILD=TRUE")
 endif()
 
 # includes
@@ -93,32 +89,29 @@ SET(COMMON_SRC_FILES
   src/adi_3dtof_floor_detector_application.cpp 
   src/adi_3dtof_floor_detector_input_thread.cpp 
   src/adi_3dtof_floor_detector_output_thread.cpp
-  src/image_proc_utils.cpp
-  src/input_sensor_file.cpp 
+  src/image_proc_utils.cpp  
   src/input_sensor_file_rosbagbin.cpp 
-  src/output_sensor_file.cpp 
+  src/output_sensor_file.cpp
   src/ros-perception/image_transport_plugins/compressed_depth_image_transport/rvl_codec.cpp
 )
 
 # executables
 # main node
-if(NOT HOST_BUILD)
+if(SENSOR_CONNECTED)
+  find_package(aditof REQUIRED)
   # compile for platforms with 3D ToF Sensor
-  add_compile_definitions(ENABLE_ADI_3DTOF_ADTF31XX_SENSOR)
+  add_compile_definitions(ENABLE_ADTF31XX_SENSOR)
   add_executable(${PROJECT_NAME}_node ${COMMON_SRC_FILES} src/input_sensor_adtf31xx.cpp)
+  # target the dependencies for the chosen node
+  ament_target_dependencies(${PROJECT_NAME}_node ${COMMON_DEPS} aditof)
 else()
   # compile for non 3D ToF sensor platform(ex:Host machines)
-  add_executable(${PROJECT_NAME}_node ${COMMON_SRC_FILES} src/input_sensor_ros_topics.cpp)
+  add_executable(${PROJECT_NAME}_node ${COMMON_SRC_FILES})
+  # target the dependencies for the chosen node
+  ament_target_dependencies(${PROJECT_NAME}_node ${COMMON_DEPS})
 endif()
 
-# target the dependencies for the chosen node
-ament_target_dependencies(${PROJECT_NAME}_node ${COMMON_DEPS})
 
-# linking dependencies
-if(NOT HOST_BUILD)
-  # required for sensor platform only
-  set(ADITOF_LIB1 ${PROJECT_SOURCE_DIR}/libs/libaditof.so)
-endif()
 
 if(${CMAKE_HOST_SYSTEM_PROCESSOR} MATCHES "aarch64|AARCH64")
   if(${PCL_VERSION} VERSION_EQUAL 1.10.0)
@@ -134,7 +127,6 @@ endif()
 target_link_libraries(${PROJECT_NAME}_node
   ${OpenCV_LIBRARIES}
   ${PCL_LIBRARIES}
-  ${ADITOF_LIB1}
   ${FLOOR_DETECTOR_CORE_LIB}
 )
 
@@ -144,7 +136,7 @@ DESTINATION lib/${PROJECT_NAME})
 
 # example node only for host
 
-if(HOST_BUILD)
+if(BUILD_EXAMPLE_NODE)
   # example node executable
   add_executable(${PROJECT_NAME}_example_node
     src/adi_3dtof_floor_detector_example.cpp

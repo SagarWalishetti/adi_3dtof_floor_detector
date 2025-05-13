@@ -4,13 +4,11 @@
 
 #include "ros-perception/image_transport_plugins/compressed_depth_image_transport/rvl_codec.h"
 
-namespace compressed_depth_image_transport
-{
+namespace compressed_depth_image_transport {
 
 RvlCodec::RvlCodec() {}
 
-void RvlCodec::EncodeVLE(int value)
-{
+void RvlCodec::EncodeVLE(int value) {
   do {
     int nibble = value & 0x7;        // lower 3 bits
     if (value >>= 3) nibble |= 0x8;  // more to come
@@ -25,8 +23,7 @@ void RvlCodec::EncodeVLE(int value)
   } while (value);
 }
 
-int RvlCodec::DecodeVLE()
-{
+int RvlCodec::DecodeVLE() {
   unsigned int nibble;
   int value = 0, bits = 29;
   do {
@@ -43,18 +40,18 @@ int RvlCodec::DecodeVLE()
   return value;
 }
 
-int RvlCodec::CompressRVL(const unsigned short * input, unsigned char * output, int numPixels)
-{
-  buffer_ = pBuffer_ = (int *)output;
+int RvlCodec::CompressRVL(const unsigned short* input, unsigned char* output,
+                          int numPixels) {
+  buffer_ = pBuffer_ = (int*)output;
   nibblesWritten_ = 0;
-  const unsigned short * end = input + numPixels;
+  const unsigned short* end = input + numPixels;
   unsigned short previous = 0;
   while (input != end) {
     int zeros = 0, nonzeros = 0;
     for (; (input != end) && !*input; input++, zeros++)
       ;
     EncodeVLE(zeros);  // number of zeros
-    for (const unsigned short * p = input; (p != end) && *p++; nonzeros++)
+    for (const unsigned short* p = input; (p != end) && *p++; nonzeros++)
       ;
     EncodeVLE(nonzeros);  // number of nonzeros
     for (int i = 0; i < nonzeros; i++) {
@@ -67,12 +64,12 @@ int RvlCodec::CompressRVL(const unsigned short * input, unsigned char * output, 
   }
   if (nibblesWritten_)  // last few values
     *pBuffer_++ = word_ << 4 * (8 - nibblesWritten_);
-  return int((unsigned char *)pBuffer_ - (unsigned char *)buffer_);  // num bytes
+  return int((unsigned char*)pBuffer_ - (unsigned char*)buffer_);  // num bytes
 }
 
-void RvlCodec::DecompressRVL(const unsigned char * input, unsigned short * output, int numPixels)
-{
-  buffer_ = pBuffer_ = const_cast<int *>(reinterpret_cast<const int *>(input));
+void RvlCodec::DecompressRVL(const unsigned char* input, unsigned short* output,
+                             int numPixels) {
+  buffer_ = pBuffer_ = const_cast<int*>(reinterpret_cast<const int*>(input));
   nibblesWritten_ = 0;
   unsigned short current, previous = 0;
   int numPixelsToDecode = numPixels;

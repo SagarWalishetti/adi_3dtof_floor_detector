@@ -30,22 +30,22 @@ public:
     ransac_time_ms_ = -1;
     noise_count_ = -1;
     compressed_depth_frame_size_ = 0;
-    compressed_ir_frame_size_ = 0;
+    compressed_ab_frame_size_ = 0;
     compressed_floor_mask_size_ = 0;
     image_width_ = image_width;
     image_height_ = image_height;
     depth_frame_ = nullptr;
-    ir_frame_ = nullptr;
+    ab_frame_ = nullptr;
     xyz_frame_ = nullptr;
     floor_mask_8bit_ = nullptr;
-    compressed_ir_frame_ = nullptr;
+    compressed_ab_frame_ = nullptr;
     compressed_depth_frame_ = nullptr;
     compressed_floor_mask_ = nullptr;
 
     depth_frame_ = new unsigned short[image_width * image_height];
-    ir_frame_ = new unsigned short[image_width * image_height];
+    ab_frame_ = new unsigned short[image_width * image_height];
     compressed_depth_frame_ = new unsigned char[2 * image_width * image_height];
-    compressed_ir_frame_ = new unsigned char[2 * image_width * image_height];
+    compressed_ab_frame_ = new unsigned char[2 * image_width * image_height];
     floor_mask_8bit_ = new unsigned char[image_width * image_height];
     compressed_floor_mask_ = new unsigned char[(image_width * image_height) / 8];
     xyz_frame_ = new short[3 * image_width * image_height];
@@ -59,8 +59,8 @@ public:
     if (depth_frame_ != nullptr) {
       delete[] depth_frame_;
     }
-    if (ir_frame_ != nullptr) {
-      delete[] ir_frame_;
+    if (ab_frame_ != nullptr) {
+      delete[] ab_frame_;
     }
     if (floor_mask_8bit_ != nullptr) {
       delete[] floor_mask_8bit_;
@@ -68,8 +68,8 @@ public:
     if (compressed_depth_frame_ != nullptr) {
       delete[] compressed_depth_frame_;
     }
-    if (compressed_ir_frame_ != nullptr) {
-      delete[] compressed_ir_frame_;
+    if (compressed_ab_frame_ != nullptr) {
+      delete[] compressed_ab_frame_;
     }
     if (compressed_floor_mask_ != nullptr) {
       delete[] compressed_floor_mask_;
@@ -90,11 +90,11 @@ public:
     noise_count_ = rhs.noise_count_;
     ransac_time_ms_ = rhs.ransac_time_ms_;
     compressed_depth_frame_size_ = rhs.compressed_depth_frame_size_;
-    compressed_ir_frame_size_ = rhs.compressed_ir_frame_size_;
+    compressed_ab_frame_size_ = rhs.compressed_ab_frame_size_;
     compressed_floor_mask_size_ = rhs.compressed_floor_mask_size_;
 
     memcpy(depth_frame_, rhs.depth_frame_, sizeof(depth_frame_) * image_width_ * image_height_);
-    memcpy(ir_frame_, rhs.ir_frame_, sizeof(ir_frame_) * image_width_ * image_height_);
+    memcpy(ab_frame_, rhs.ab_frame_, sizeof(ab_frame_) * image_width_ * image_height_);
     memcpy(xyz_frame_, rhs.xyz_frame_, sizeof(xyz_frame_) * image_width_ * image_height_ * 3);
     memcpy(
       floor_mask_8bit_, rhs.floor_mask_8bit_,
@@ -106,8 +106,8 @@ public:
       compressed_depth_frame_, rhs.compressed_depth_frame_,
       sizeof(compressed_depth_frame_) * compressed_depth_frame_size_);
     memcpy(
-      compressed_ir_frame_, rhs.compressed_ir_frame_,
-      sizeof(compressed_ir_frame_) * compressed_ir_frame_size_);
+      compressed_ab_frame_, rhs.compressed_ab_frame_,
+      sizeof(compressed_ab_frame_) * compressed_ab_frame_size_);
     return *this;
   }
 
@@ -119,16 +119,16 @@ public:
   int noise_count_;
   float ransac_time_ms_;
   int compressed_depth_frame_size_;
-  int compressed_ir_frame_size_;
+  int compressed_ab_frame_size_;
   int compressed_floor_mask_size_;
 
   unsigned short * depth_frame_;
-  unsigned short * ir_frame_;
+  unsigned short * ab_frame_;
   short * xyz_frame_;
   unsigned char * floor_mask_8bit_;
   unsigned char * compressed_floor_mask_;
   unsigned char * compressed_depth_frame_;
-  unsigned char * compressed_ir_frame_;
+  unsigned char * compressed_ab_frame_;
 };
 
 #endif

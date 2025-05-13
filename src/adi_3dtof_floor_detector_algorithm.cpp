@@ -91,13 +91,13 @@ bool ADI3DToFFloorDetector::runFloorDetection()
   }
 
   depth_frame_ = inframe->getDepthFrame();
-  ir_frame_ = inframe->getIRFrame();
+  ab_frame_ = inframe->getIRFrame();
   xyz_frame_ = inframe->getXYZFrame();
   compressed_depth_frame_ = inframe->getCompressedDepthFrame();
   compressed_depth_frame_size_ = inframe->getCompressedDepthFrameSize();
 
   if (
-    (depth_frame_ == nullptr) || (ir_frame_ == nullptr) || (xyz_frame_ == nullptr) ||
+    (depth_frame_ == nullptr) || (ab_frame_ == nullptr) || (xyz_frame_ == nullptr) ||
     ((enable_compression_op_image_topics_) && (compressed_depth_frame_ == nullptr))) {
     return false;
   }
@@ -127,7 +127,7 @@ bool ADI3DToFFloorDetector::runFloorDetection()
 
   // nullptr checks
   if (
-    (new_output_frame->depth_frame_ == nullptr) || (new_output_frame->ir_frame_ == nullptr) ||
+    (new_output_frame->depth_frame_ == nullptr) || (new_output_frame->ab_frame_ == nullptr) ||
     (new_output_frame->xyz_frame_ == nullptr)) {
     return false;
   }
@@ -195,7 +195,7 @@ bool ADI3DToFFloorDetector::runFloorDetection()
 
     //IR compression is happening in output thread
     memcpy(
-      new_output_frame->ir_frame_, ir_frame_, image_width_ * image_height_ * sizeof(ir_frame_[0]));
+      new_output_frame->ab_frame_, ab_frame_, image_width_ * image_height_ * sizeof(ab_frame_[0]));
 
     if (enable_pointcloud_publisher_) {
       memcpy(

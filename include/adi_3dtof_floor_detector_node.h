@@ -90,14 +90,23 @@ public:
     input_file_name_or_ros_topic_prefix_descriptor.description =
       "Input file name in FileIO mode or rostopic prefix name";
     this->declare_parameter<std::string>(
-      "param_input_file_name_or_ros_topic_prefix_name", "no name",
+      "param_input_file_name", "no name",
       input_file_name_or_ros_topic_prefix_descriptor);
 
-    rcl_interfaces::msg::ParameterDescriptor frame_type_descriptor{};
-    frame_type_descriptor.read_only = true;
-    frame_type_descriptor.description = "Frame type";
-    this->declare_parameter<std::string>("param_frame_type", "no name", frame_type_descriptor);
+    // Frame type supported in TOF SDK
+    rcl_interfaces::msg::ParameterDescriptor camera_mode_descriptor{};
+    camera_mode_descriptor.read_only = true;
+    camera_mode_descriptor.description = "Camera Mode";
+    this->declare_parameter<int>("param_camera_mode", 3, camera_mode_descriptor);
 
+    // ip address of the sensor
+    rcl_interfaces::msg::ParameterDescriptor ip_address_of_sensor_descriptor{};
+    ip_address_of_sensor_descriptor.read_only = true;
+    ip_address_of_sensor_descriptor.description = "IP address of the sensor";
+    this->declare_parameter<std::string>(
+      "param_input_sensor_ip", "no name", ip_address_of_sensor_descriptor);
+
+    // Path of the config file to read from tof sdk  
     rcl_interfaces::msg::ParameterDescriptor path_of_the_config_file_descriptor{};
     path_of_the_config_file_descriptor.read_only = true;
     path_of_the_config_file_descriptor.description = "Path of the configuaration files";
@@ -178,10 +187,11 @@ public:
     optical_camera_link_ = this->get_parameter("param_optical_camera_link").as_string();
     input_sensor_mode_ = this->get_parameter("param_input_sensor_mode").as_int();
     output_sensor_mode_ = this->get_parameter("param_output_sensor_mode").as_int();
-    input_file_name_or_ros_topic_prefix_name_ =
-      this->get_parameter("param_input_file_name_or_ros_topic_prefix_name").as_string();
-
-    std::string frame_type = this->get_parameter("param_frame_type").as_string();
+    input_file_name_ =
+      this->get_parameter("param_input_file_name").as_string();
+    input_sensor_ip_ =
+      this->get_parameter("param_input_sensor_ip").get_parameter_value().get<std::string>();          
+    int camera_mode = this->get_parameter("param_camera_mode").get_parameter_value().get<int>();    
     ab_threshold_ = this->get_parameter("param_ab_threshold").as_int();
     confidence_threshold_ = this->get_parameter("param_confidence_threshold").as_int();
     std::string config_file_name_of_tof_sdk =
@@ -221,18 +231,22 @@ public:
     input_sensor_ = InputSensorFactory::getInputSensor(input_sensor_mode_);
 
     // Open the sensor
+    if (input_sensor_mode_ != 3) {
+      // If the mode is not ADTF31xx sensor over Network, then the ip should be set to ""
+      input_sensor_ip_.clear();
+    }
     input_sensor_->openSensor(
-      input_file_name_or_ros_topic_prefix_name_, input_image_width, input_image_height,
-      processing_scale_, config_file_name_of_tof_sdk);
+      input_file_name_, input_image_width, input_image_height, config_file_name_of_tof_sdk, input_sensor_ip_);    
     if (!input_sensor_->isOpened()) {
       RCLCPP_ERROR(
         this->get_logger(), "Could not open the sensor %s",
-        input_file_name_or_ros_topic_prefix_name_.c_str());
+        input_file_name_.c_str());
       rclcpp::shutdown();
     }
 
     // Configure the sensor
-    input_sensor_->configureSensor(frame_type);
+    input_sensor_->configureSensor(camera_mode);
+
     image_width_ = input_sensor_->getFrameWidth();
     image_height_ = input_sensor_->getFrameHeight();
 
@@ -255,7 +269,7 @@ public:
     output_sensor_ = OutputSensorFactory::getOutputSensor(output_sensor_mode_);
     if (output_sensor_ != nullptr) {
       output_sensor_->open(
-        input_file_name_or_ros_topic_prefix_name_, image_width_, image_height_, EnableAllOutputs);
+        input_file_name_, image_width_, image_height_, EnableAllOutputs);
     }
 
     // Get intrinsics and extrinsics
@@ -276,13 +290,13 @@ public:
     if (enable_compression_op_image_topics_ == true) {
       compressed_depth_image_publisher_ = this->create_publisher<sensor_msgs::msg::CompressedImage>(
         "depth_image/compressedDepth", 10);
-      compressed_ir_image_publisher_ =
-        this->create_publisher<sensor_msgs::msg::CompressedImage>("ir_image/compressedDepth", 10);
+      compressed_ab_image_publisher_ =
+        this->create_publisher<sensor_msgs::msg::CompressedImage>("ab_image/compressedDepth", 10);
       compressed_floor_mask_publisher_ =
         this->create_publisher<sensor_msgs::msg::CompressedImage>("compressed_floor_mask", 10);
     } else {
       depth_image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("depth_image", 10);
-      ir_image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("ir_image", 10);
+      ab_image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("ab_image", 10);
       floor_mask_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("floor_mask", 10);
     }
     depth_info_publisher_ = this->create_publisher<sensor_msgs::msg::CameraInfo>("camera_info", 10);
@@ -384,25 +398,27 @@ private:
   std::unique_ptr<tf2_ros::Buffer> optical_map_tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> optical_map_tf_listener_{nullptr};
 
-  std::string input_file_name_or_ros_topic_prefix_name_;
+  std::string input_file_name_;
+  std::string input_sensor_ip_;
+  std::string encoding_type_;
   std::string output_file_name_;
   sensor_msgs::msg::CameraInfo cam_info_msg_;
   unsigned short * depth_frame_ = nullptr;
-  unsigned short * ir_frame_ = nullptr;
+  unsigned short * ab_frame_ = nullptr;
   short * xyz_frame_ = nullptr;
   short * input_xyz_frame_ = nullptr;
   short * output_xyz_frame_ = nullptr;
   int compressed_depth_frame_size_ = 0;
-  int compressed_ir_frame_size_ = 0;
+  int compressed_ab_frame_size_ = 0;
   unsigned char * compressed_depth_frame_ = nullptr;
-  unsigned char * compressed_ir_frame_ = nullptr;
+  unsigned char * compressed_ab_frame_ = nullptr;
 
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_image_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ir_image_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ab_image_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr floor_mask_publisher_;
 
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr compressed_depth_image_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr compressed_ir_image_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr compressed_ab_image_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr compressed_floor_mask_publisher_;
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr xyz_image_publisher_;
@@ -570,12 +586,12 @@ private:
   /**Function Declarations*/
 
   void publishImageAndCameraInfo(
-    unsigned short * depth_frame, unsigned short * ir_frame, unsigned char * floor_mask_frame,
+    unsigned short * depth_frame, unsigned short * ab_frame, unsigned char * floor_mask_frame,
     short * xyz_frame);
 
   void publishImageAndCameraInfo(
     unsigned char * compressed_depth_frame, int compressed_depth_frame_size,
-    unsigned char * compressed_ir_frame, int compressed_ir_frame_size,
+    unsigned char * compressed_ab_frame, int compressed_ab_frame_size,
     unsigned char * compressed_floor_mask_frame, int compressed_floor_mask_frame_size,
     short * xyz_frame);
 
@@ -595,7 +611,7 @@ private:
   void publishPointCloud(short * xyz_frame);
 
   cv::Mat getFloorDetectionOutput(
-    unsigned short * depth_frame_with_floor, unsigned short * ir_frame,
+    unsigned short * depth_frame_with_floor, unsigned short * ab_frame,
     unsigned char * floor_mask_8bit);
 
   void initSettingsForDynamicReconfigure();
