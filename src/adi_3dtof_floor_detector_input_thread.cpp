@@ -83,7 +83,6 @@ void ADI3DToFFloorDetector::updateDynamicReconfigureVariablesInputThread()
  */
 void ADI3DToFFloorDetector::readInput()
 {
-  int frame_count = 0;
 
   while (!read_input_thread_abort_)
   {
@@ -135,7 +134,7 @@ void ADI3DToFFloorDetector::readInput()
         // Frame read succesfully, compress the frames.
         if (enable_compression_op_image_topics_)
         {
-          PROFILE_FUNCTION_START(FLOOR_DETECTOR_4_COMPRESS_DEPTH_IR)
+          PROFILE_FUNCTION_START(FLOOR_DETECTOR_4_COMPRESS_DEPTH_AB)
           // Depth Compression
           compressed_depth_image_transport::RvlCodec rvl;
           unsigned short* raw_depth_frame = new_frame->getDepthFrame();
@@ -143,7 +142,7 @@ void ADI3DToFFloorDetector::readInput()
           int compressed_size_depth_frame =
               rvl.CompressRVL(&raw_depth_frame[0], &compressed_depth_frame[0], image_width_ * image_height_);
           new_frame->setCompressedDepthFrameSize(compressed_size_depth_frame);
-          PROFILE_FUNCTION_END(FLOOR_DETECTOR_4_COMPRESS_DEPTH_IR)
+          PROFILE_FUNCTION_END(FLOOR_DETECTOR_4_COMPRESS_DEPTH_AB)
         }
       }
     }
@@ -169,7 +168,7 @@ void ADI3DToFFloorDetector::readInput()
       std::cout << "Overwrite buffer" << std::endl;
       // If the Queue is full, then overwrite the last buffer with the latest frame
       input_thread_mtx_.lock();
-      ADTF31xxSensorFrameInfo* last_node = (ADTF31xxSensorFrameInfo*)input_frames_queue_.back();
+      __attribute__((unused)) ADTF31xxSensorFrameInfo* last_node = (ADTF31xxSensorFrameInfo*)input_frames_queue_.back();
       input_thread_mtx_.unlock();
       last_node = new_frame;
       delete new_frame;

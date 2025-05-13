@@ -25,7 +25,7 @@ void OutputSensorFile::open(std::string input_file_name, int image_width, int im
   {
     video_enabled_ = true;
   }
-  else if (output_flag = EnableAllOutputs)
+  else if (output_flag == EnableAllOutputs)
   {
     csv_enabled_ = true;
     video_enabled_ = true;
@@ -40,7 +40,7 @@ void OutputSensorFile::open(std::string input_file_name, int image_width, int im
   if (video_enabled_)
   {
     // Open output video file
-    // Concatenate Depth, IR, Floor marked Depth image
+    // Concatenate Depth, AB, Floor marked Depth image
     openOutputVideoFile(input_file_name, image_width * 3, image_height);
   }
 }

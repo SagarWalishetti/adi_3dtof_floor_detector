@@ -44,7 +44,7 @@ void ADI3DToFFloorDetector::floorDetectorIOThreadPushOutputNode(ADI3DToFFloorDet
   }
   else
   {
-    ADI3DToFFloorDetectorOutputInfo* last_node = nullptr;
+    __attribute__((unused)) ADI3DToFFloorDetectorOutputInfo* last_node = nullptr;
     // Replace the last item with the current one.
     output_thread_mtx_.lock();
     last_node = (ADI3DToFFloorDetectorOutputInfo*)output_node_queue_.back();
@@ -85,30 +85,30 @@ void ADI3DToFFloorDetector::processOutput()
       // Publish
       if (enable_compression_op_image_topics_)
       {
-        PROFILE_FUNCTION_START(FLOOR_DETECTOR_4_COMPRESS_DEPTH_IR)
-        // IR compression
+        PROFILE_FUNCTION_START(FLOOR_DETECTOR_4_COMPRESS_DEPTH_AB)
+        // AB compression
         compressed_depth_image_transport::RvlCodec rvl;
-        new_frame->compressed_ir_frame_size_ = rvl.CompressRVL(
-            &new_frame->ir_frame_[0], &new_frame->compressed_ir_frame_[0], image_width_ * image_height_);
-        PROFILE_FUNCTION_END(FLOOR_DETECTOR_4_COMPRESS_DEPTH_IR)
+        new_frame->compressed_ab_frame_size_ = rvl.CompressRVL(
+            &new_frame->ab_frame_[0], &new_frame->compressed_ab_frame_[0], image_width_ * image_height_);
+        PROFILE_FUNCTION_END(FLOOR_DETECTOR_4_COMPRESS_DEPTH_AB)
 
         publishImageAndCameraInfo(new_frame->compressed_depth_frame_, new_frame->compressed_depth_frame_size_,
-                                  new_frame->compressed_ir_frame_, new_frame->compressed_ir_frame_size_,
+                                  new_frame->compressed_ab_frame_, new_frame->compressed_ab_frame_size_,
                                   new_frame->compressed_floor_mask_, new_frame->compressed_floor_mask_size_,
                                   new_frame->xyz_frame_);
       }
       else
       {
-        publishImageAndCameraInfo(new_frame->depth_frame_, new_frame->ir_frame_, new_frame->floor_mask_8bit_,
+        publishImageAndCameraInfo(new_frame->depth_frame_, new_frame->ab_frame_, new_frame->floor_mask_8bit_,
                                   new_frame->xyz_frame_);
       }
 
       // Write outputs
       if (output_sensor_ != nullptr)
       {
-        // floor detection output (depth, ir, floor marked depth image)
+        // floor detection output (depth, ab, floor marked depth image)
         cv::Mat floor_detection_op_image =
-            getFloorDetectionOutput(new_frame->depth_frame_, new_frame->ir_frame_, new_frame->floor_mask_8bit_);
+            getFloorDetectionOutput(new_frame->depth_frame_, new_frame->ab_frame_, new_frame->floor_mask_8bit_);
         output_sensor_->write(new_frame->frame_number_, floor_detection_op_image,
                               new_frame->ransac_floor_detection_status_, new_frame->ransac_iterations_,
                               new_frame->noise_count_, new_frame->ransac_time_ms_);

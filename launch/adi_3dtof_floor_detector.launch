@@ -9,31 +9,30 @@
     <!-- Input Modes, default(0)
         0:ADTF3175D ToF sensor
         2:Rosbag bin file format
-        3:ROS Topics format 
+        3:Host connected to ADTF31xx
     -->
-	<arg name="arg_input_mode" default="0"/>
+	<arg name="arg_input_mode" default="3"/>
+    <!-- IP of the ADTF31xx board : Applicable only if the input mode is 4 -->
+    <arg name="arg_input_sensor_ip"  default="10.43.0.1"/>
     <!-- Output Modes, default(0)
         0 : Disable all outputs
         1 : Enable both AVI and CSV outputs
     -->
 	<arg name="arg_output_mode" default="0"/>
-    <!-- Input argument for file-io modes (arg_input_mode 1,2,3)
-        If "arg_input_mode" is 1 or 2 then "arg_input_file_name_or_ros_topic_prefix_name" represents the file name.
-        Ex: <arg name="arg_input_file_name_or_ros_topic_prefix_name" default="$(find adi_3dtof_floor_detector)/../adi_3dtof_input_video_files/adi_3dtof_height_170mm_yaw_0degrees_cam3.bin"/>
-
-        If "arg_input_mode" is 3 then "arg_input_file_name_or_ros_topic_prefix_name" represents the prefix of ros topics.
-        Ex: <arg name="arg_input_file_name_or_ros_topic_prefix_name" default="cam1"/>
+    <!-- Input argument for file-io mode (arg_input_mode 2)
+        If "arg_input_mode" is 2 then "arg_input_file_name" represents the file name.
+        Ex: <arg name="arg_input_file_name" default="$(find adi_3dtof_floor_detector)/../adi_3dtof_input_video_files/adi_3dtof_height_170mm_yaw_0degrees_cam3.bin"/>
     -->
-    <arg name="arg_input_file_name_or_ros_topic_prefix_name" default="$(find adi_3dtof_floor_detector)/../adi_3dtof_input_video_files/adi_3dtof_height_170mm_yaw_0degrees_cam3.bin"/>
+    <arg name="arg_input_file_name" default="$(find adi_3dtof_floor_detector)/../adi_3dtof_input_video_files/adi_3dtof_height_170mm_yaw_0degrees_cam3.bin"/>
 
 
     <!-- ADTF31XX Sensor (arg_input_mode = 0) related parameters -->
 
-    <!-- Frame Type
-        "qmp" - Sensor serial number starting with CR/DV
-        "lr-qnative" - Sensor serial number starting with AM
+    <!-- camera_mode
+        "lr-native" - 1
+        "lr-qnative" - 3
     -->
-    <arg name="arg_frame_type" value="qmp" />
+    <arg name="arg_camera_mode" value="3" />
     <!-- AB threshold value, default(10) -->
     <arg name="arg_ab_threshold" value="10" />
     <!-- Confidence threshold value
@@ -42,10 +41,9 @@
 	-->
     <arg name="arg_confidence_threshold" value="10" />
     <!-- Configuration fie name of ToF SDK
-        "config_crosby_old_modes.json" - Sensor serial number starting with CR/DV
-        "config_crosby_adsd3500_new_modes.json" - Sensor serial number starting with AM
+        "config_adsd3500_adsd3100.json" - Sensor serial number starting with AM
     -->
-    <arg name="arg_config_file_name_of_tof_sdk" value="./config/config_crosby_old_modes.json" />
+    <arg name="arg_config_file_name_of_tof_sdk" value="./config/config_adsd3500_adsd3100.json" />
 
 
     <!-- Floor Detector related parameters -->
@@ -75,7 +73,7 @@
 
     <!-- Output Topics related parameters -->
 
-    <!-- Enable compression for Depth, IR, Floor Mask Output Topics.
+    <!-- Enable compression for Depth, AB, Floor Mask Output Topics.
     Currenlty, point cloud compression is not supported, default(0) -->
     <arg name="arg_enable_compression_op_image_topics" default="0"/>
 
@@ -126,14 +124,15 @@
 
     <!-- Launch Camera Node -->
     <group ns="$(arg ns_prefix_cam)">
-      <node name="adi_3dtof_floor_detector_node" pkg="adi_3dtof_floor_detector" type="adi_3dtof_floor_detector_node" output="screen" required="true">
+      <node name="adi_3dtof_floor_detector_node" pkg="adi_3dtof_floor_detector" type="adi_3dtof_floor_detector_node" output="screen" cwd="node" required="true">
             <param name="param_camera_link" value="$(arg cam_base_frame)"/>
             <param name="param_optical_camera_link" value="$(arg cam_base_frame_optical)"/>
             <param name="param_input_sensor_mode" value="$(arg arg_input_mode)" />
+            <param name="param_input_sensor_ip" value="$(arg arg_input_sensor_ip)" />
             <param name="param_output_sensor_mode" value="$(arg arg_output_mode)" />
-            <param name="param_input_file_name_or_ros_topic_prefix_name" value="$(arg arg_input_file_name_or_ros_topic_prefix_name)"/>
+            <param name="param_input_file_name" value="$(arg arg_input_file_name)"/>
 
-            <param name="param_frame_type" value="$(arg arg_frame_type)"/>
+            <param name="param_camera_mode" value="$(arg arg_camera_mode)"/>
             <param name="param_ab_threshold" value="$(arg arg_ab_threshold)"/>
             <param name="param_confidence_threshold" value="$(arg arg_confidence_threshold)" />
             <param name="param_config_file_name_of_tof_sdk" value="$(arg arg_config_file_name_of_tof_sdk)" /> 

@@ -55,10 +55,10 @@ public:
     enable_pointcloud_output_ = enable_pointcloud_output;
     depth_image_topic_ = nullptr;
 
-    // Topics : camera-info, depth, ir and floor mask
+    // Topics : camera-info, depth, ab and floor mask
     camera_info_topic_name_ = "/" + cam_prefix + "/camera_info";
     depth_image_topic_name_ = "/" + cam_prefix + "/depth_image";
-    // ir_image_topic_name_ = "/" + cam_prefix + "/ir_image";
+    // ab_image_topic_name_ = "/" + cam_prefix + "/ab_image";
     floor_mask_topic_name_ = "/" + cam_prefix + "/floor_mask";
     compressed_floor_mask_topic_name_ = "/" + cam_prefix + "/compressed_floor_mask";
 
@@ -66,7 +66,7 @@ public:
         camera_info_topic_name_, 1, boost::bind(&ADI3DToFFloorDetectorExample::camInfoCallback, this, _1));
 
     depth_image_subscriber_.subscribe(it_, depth_image_topic_name_, 1);
-    // ir_image_subscriber_.subscribe(nh, ir_image_topic_name, 1);
+    // ab_image_subscriber_.subscribe(nh, ab_image_topic_name, 1);
     floor_mask_subscriber_.subscribe(nh, floor_mask_topic_name_, 1);
     sync_shared_ptr_.reset(new sync_(sync_policy_depth_floor_(MAX_QUEUE_SIZE_FOR_TIME_SYNC), depth_image_subscriber_,
                                      floor_mask_subscriber_));
@@ -74,7 +74,7 @@ public:
 
     compressed_floor_mask_subscriber_.subscribe(nh, compressed_floor_mask_topic_name_, 1);
     sync_compressed_shared_ptr_.reset(
-        new sync_compressed_(sync_policy_compressed_depth_ir_floor_(MAX_QUEUE_SIZE_FOR_TIME_SYNC),
+        new sync_compressed_(sync_policy_compressed_depth_ab_floor_(MAX_QUEUE_SIZE_FOR_TIME_SYNC),
                              depth_image_subscriber_, compressed_floor_mask_subscriber_));
     sync_compressed_shared_ptr_->registerCallback(
         boost::bind(&ADI3DToFFloorDetectorExample::syncCompressedCallback, this, _1, _2));
@@ -85,12 +85,12 @@ public:
     // Flags for received topics
     camera_parameters_updated_ = false;
     depth_image_recvd_ = false;
-    ir_image_recvd_ = false;
+    ab_image_recvd_ = false;
     floor_mask_image_recvd_ = false;
 
     // Images
     depth_image_ = nullptr;
-    ir_image_ = nullptr;
+    ab_image_ = nullptr;
     floor_mask_image_ = nullptr;
     xyz_image_ = nullptr;
 
@@ -118,10 +118,10 @@ public:
       depth_image_ = nullptr;
     }
 
-    if (ir_image_ != nullptr)
+    if (ab_image_ != nullptr)
     {
-      delete[] ir_image_;
-      ir_image_ = nullptr;
+      delete[] ab_image_;
+      ab_image_ = nullptr;
     }
 
     if (floor_mask_image_ != nullptr)
@@ -158,14 +158,14 @@ private:
 
   std::string camera_info_topic_name_;
   std::string depth_image_topic_name_;
-  std::string ir_image_topic_name_;
+  std::string ab_image_topic_name_;
   std::string floor_mask_topic_name_;
   std::string compressed_floor_mask_topic_name_;
 
   ros::Subscriber sub_cam_info_;
   image_transport::ImageTransport it_;
   image_transport::SubscriberFilter depth_image_subscriber_;
-  image_transport::SubscriberFilter ir_image_subscriber_;
+  image_transport::SubscriberFilter ab_image_subscriber_;
   message_filters::Subscriber<sensor_msgs::Image> floor_mask_subscriber_;
   message_filters::Subscriber<sensor_msgs::CompressedImage> compressed_floor_mask_subscriber_;
 
@@ -178,19 +178,19 @@ private:
 
   // sync policy for compressed images
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::CompressedImage>
-      sync_policy_compressed_depth_ir_floor_;
+      sync_policy_compressed_depth_ab_floor_;
   // synchronizer for compressed images
-  typedef message_filters::Synchronizer<sync_policy_compressed_depth_ir_floor_> sync_compressed_;
+  typedef message_filters::Synchronizer<sync_policy_compressed_depth_ab_floor_> sync_compressed_;
   boost::shared_ptr<sync_compressed_> sync_compressed_shared_ptr_;
 
   bool depth_image_recvd_;
-  bool ir_image_recvd_;
+  bool ab_image_recvd_;
   bool floor_mask_image_recvd_;
 
   sensor_msgs::ImageConstPtr depth_image_topic_;
 
   unsigned short* depth_image_;
-  unsigned short* ir_image_;
+  unsigned short* ab_image_;
   unsigned char* floor_mask_image_;
   short* xyz_image_;
 
@@ -202,7 +202,7 @@ private:
 
   void camInfoCallback(const sensor_msgs::CameraInfoConstPtr& cam_info);
   void depthImageCallback(const sensor_msgs::ImageConstPtr& depth_image);
-  void irImageCallback(const sensor_msgs::ImageConstPtr& ir_image);
+  void abImageCallback(const sensor_msgs::ImageConstPtr& ab_image);
   void floorMaskImageCallback(const sensor_msgs::ImageConstPtr& floor_mask_image);
   void compressedFloorMaskCallback(const sensor_msgs::CompressedImageConstPtr& compressed_floor_mask_image);
   void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr& point_cloud);

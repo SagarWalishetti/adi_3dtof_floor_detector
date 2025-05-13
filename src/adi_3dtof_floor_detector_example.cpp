@@ -36,11 +36,6 @@ void ADI3DToFFloorDetectorExample::camInfoCallback(const sensor_msgs::CameraInfo
     // Save
     image_width_ = cam_info->width;
     image_height_ = cam_info->height;
-    if ((image_width_ != 512) || (image_height_ != 512))
-    {
-      ROS_INFO_STREAM("Image size is not set to 512x512");
-      return;
-    }
 
     // Check whether original or modified camera intrinsic are sent
     camera_intrinsics_.camera_matrix[0] = cam_info->K[0];
@@ -71,7 +66,7 @@ void ADI3DToFFloorDetectorExample::camInfoCallback(const sensor_msgs::CameraInfo
 void ADI3DToFFloorDetectorExample::depthImageCallback(const sensor_msgs::ImageConstPtr& depth_image)
 {
   // Depth Image
-  if ((depth_image->width != image_width_) || (depth_image->height != image_height_))
+  if ((depth_image->width != (unsigned int)image_width_) || (depth_image->height != (unsigned int)image_height_))
   {
     ROS_INFO("Depth image dimension is not matching with camera info.");
     return;
@@ -89,26 +84,26 @@ void ADI3DToFFloorDetectorExample::depthImageCallback(const sensor_msgs::ImageCo
 }
 
 /**
- * @brief Callback to ir image
+ * @brief Callback to ab image
  *
- * @param ir_image IR image message
+ * @param ab_image AB image message
  */
-void ADI3DToFFloorDetectorExample::irImageCallback(const sensor_msgs::ImageConstPtr& ir_image)
+void ADI3DToFFloorDetectorExample::abImageCallback(const sensor_msgs::ImageConstPtr& ab_image)
 {
-  // IR Image
-  if ((ir_image->width != image_width_) || (ir_image->height != image_height_))
+  // AB Image
+  if ((ab_image->width != (unsigned int)image_width_) || (ab_image->height != (unsigned int)image_height_))
   {
-    ROS_INFO("IR image dimension is not matching with camera info.");
+    ROS_INFO("AB image dimension is not matching with camera info.");
     return;
   }
-  // Memory Allocation for ir image
-  if (ir_image_ == nullptr)
+  // Memory Allocation for ab image
+  if (ab_image_ == nullptr)
   {
-    ir_image_ = new unsigned short[image_width_ * image_height_ * 2];
+    ab_image_ = new unsigned short[image_width_ * image_height_ * 2];
   }
   // copy
-  memcpy(ir_image_, &ir_image->data[0], image_width_ * image_height_ * 2);
-  ir_image_recvd_ = true;
+  memcpy(ab_image_, &ab_image->data[0], image_width_ * image_height_ * 2);
+  ab_image_recvd_ = true;
 }
 
 /**
@@ -119,7 +114,7 @@ void ADI3DToFFloorDetectorExample::irImageCallback(const sensor_msgs::ImageConst
 void ADI3DToFFloorDetectorExample::floorMaskImageCallback(const sensor_msgs::ImageConstPtr& floor_mask_image)
 {
   // Floor mask image
-  if ((floor_mask_image->width != image_width_) || (floor_mask_image->height != image_height_))
+  if ((floor_mask_image->width != (unsigned int)image_width_) || (floor_mask_image->height != (unsigned int)image_height_))
   {
     ROS_INFO("Floor mask image dimension is not matching with camera info.");
     return;
@@ -151,7 +146,7 @@ void ADI3DToFFloorDetectorExample::compressedFloorMaskCallback(
   int* image_width = (int*)&compressed_floor_mask_image->data[sizeof(compressed_depth_image_transport::ConfigHeader)];
   int* image_height =
       (int*)&compressed_floor_mask_image->data[sizeof(compressed_depth_image_transport::ConfigHeader) + 4];
-  int num_pixels = (*image_width) * (*image_width);
+  int num_pixels = (*image_width) * (*image_height);
 
   if ((*image_width != image_width_) || (*image_height != image_height_))
   {
@@ -275,7 +270,7 @@ sensor_msgs::PointCloud2::Ptr ADI3DToFFloorDetectorExample::convert2ROSPointClou
 }
 
 /**
- * @brief Callback to synchronize depth, ir, floor mask images
+ * @brief Callback to synchronize depth, ab, floor mask images
  *
  * @param depth_image depth image
  * @param floor_mask_image floor mask image
@@ -295,7 +290,7 @@ void ADI3DToFFloorDetectorExample::syncCallback(const sensor_msgs::ImageConstPtr
 }
 
 /**
- * @brief Callback to synchronize compressed depth, ir, floor mask images
+ * @brief Callback to synchronize compressed depth, ab, floor mask images
  *
  * @param compressed_depth_image Compressed depth image
  * @param compressed_floor_mask_image Compressed floor mask image

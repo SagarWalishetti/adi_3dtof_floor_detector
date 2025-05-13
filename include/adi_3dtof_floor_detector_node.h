@@ -79,12 +79,16 @@ public:
     int output_sensor_mode;
     nh.param<int>("param_output_sensor_mode", output_sensor_mode, 0);
 
-    std::string input_file_name_or_ros_topic_prefix_name;
-    nh.param<std::string>("param_input_file_name_or_ros_topic_prefix_name", input_file_name_or_ros_topic_prefix_name,
+    std::string input_file_name;
+    nh.param<std::string>("param_input_file_name", input_file_name,
                           "no name");
 
-    std::string frame_type;
-    nh.param<std::string>("param_frame_type", frame_type, "no name");
+    // camera mode supported in TOF SDK
+    int camera_mode;
+    nh.param<int>("param_camera_mode", camera_mode, 4);
+
+    std::string input_sensor_ip;
+    nh.param<std::string>("param_input_sensor_ip", input_sensor_ip, "no name");
 
     int ab_threshold;
     nh.param<int>("param_ab_threshold", ab_threshold, 10);
@@ -130,7 +134,8 @@ public:
     optical_camera_link_ = std::move(optical_camera_link);
     input_sensor_mode_ = input_sensor_mode;
     output_sensor_mode_ = output_sensor_mode;
-    input_file_name_or_ros_topic_prefix_name_ = std::move(input_file_name_or_ros_topic_prefix_name);
+    input_file_name_ = std::move(input_file_name);
+    input_sensor_ip_ = std::move(input_sensor_ip);
     fallback_floor_height_offset_mtr_ = fallback_floor_height_offset_mtr;
     frame_number_ = 0;
     enable_ransac_floor_detection_ = (enable_ransac_floor_detection == 1) ? true : false;
@@ -141,22 +146,28 @@ public:
     ransac_max_iterations_ = ransac_max_iterations;
     ab_threshold_ = ab_threshold;
     confidence_threshold_ = confidence_threshold;
-    processing_scale_ = processing_scale;
 
     // Get input sensor module
     input_sensor_ = InputSensorFactory::getInputSensor(input_sensor_mode_);
 
     // Open the sensor
-    input_sensor_->openSensor(input_file_name_or_ros_topic_prefix_name_, input_image_width, input_image_height,
-                              processing_scale_, config_file_name_of_tof_sdk);
+    if (input_sensor_mode_ != 3)
+    {
+      // If the mode is not ADTF31xx sensor over Network, then the ip should be set to ""
+      input_sensor_ip_.clear();
+    }
+
+    // Open the sensor
+    input_sensor_->openSensor(input_file_name_, input_image_width, input_image_height,
+                              config_file_name_of_tof_sdk, input_sensor_ip_);
     if (!input_sensor_->isOpened())
     {
-      ROS_ERROR("Could not open the sensor %s", input_file_name_or_ros_topic_prefix_name_.c_str());
+      ROS_ERROR("Could not open the sensor %s", input_file_name_.c_str());
       shutDownAllNodes();
     }
 
     // Configure the sensor
-    input_sensor_->configureSensor(frame_type);
+    input_sensor_->configureSensor(camera_mode);
     image_width_ = input_sensor_->getFrameWidth();
     image_height_ = input_sensor_->getFrameHeight();
 
@@ -172,7 +183,7 @@ public:
     output_sensor_ = OutputSensorFactory::getOutputSensor(output_sensor_mode_);
     if (output_sensor_ != nullptr)
     {
-      output_sensor_->open(input_file_name_or_ros_topic_prefix_name_, image_width_, image_height_, EnableAllOutputs);
+      output_sensor_->open(input_file_name_, image_width_, image_height_, EnableAllOutputs);
     }
 
     // Create TF listerner instance
@@ -195,13 +206,13 @@ public:
     if (enable_compression_op_image_topics_ == true)
     {
       depth_image_publisher_ = this->advertise<sensor_msgs::CompressedImage>("depth_image/compressedDepth", 10);
-      ir_image_publisher_ = this->advertise<sensor_msgs::CompressedImage>("ir_image/compressedDepth", 10);
+      ab_image_publisher_ = this->advertise<sensor_msgs::CompressedImage>("ab_image/compressedDepth", 10);
       floor_mask_publisher_ = this->advertise<sensor_msgs::CompressedImage>("compressed_floor_mask", 10);
     }
     else
     {
       depth_image_publisher_ = this->advertise<sensor_msgs::Image>("depth_image", 10);
-      ir_image_publisher_ = this->advertise<sensor_msgs::Image>("ir_image", 10);
+      ab_image_publisher_ = this->advertise<sensor_msgs::Image>("ab_image", 10);
       floor_mask_publisher_ = this->advertise<sensor_msgs::Image>("floor_mask", 10);
     }
     depth_info_publisher_ = this->advertise<sensor_msgs::CameraInfo>("camera_info", 10);
@@ -211,7 +222,7 @@ public:
     }
 
     // For File-io, we do not want to miss any frame, so increasing the queue size.
-    if (input_sensor_mode_ != 0)
+    if ((input_sensor_mode_ != 0) && (input_sensor_mode_ != 3) && (input_sensor_mode_ != 4))
     {
       max_input_queue_length_ = 100;
       max_output_queue_length_ = 100;
@@ -292,7 +303,8 @@ private:
   bool enable_pointcloud_publisher_ = false;
   int ab_threshold_ = 10;
   int confidence_threshold_ = 10;
-  std::string input_file_name_or_ros_topic_prefix_name_;
+  std::string input_file_name_;
+  std::string input_sensor_ip_;
   std::string output_file_name_;
   tf2_ros::Buffer optical_map_tf_buffer_;
   tf2_ros::Buffer camera_map_tf_buffer_;
@@ -300,16 +312,16 @@ private:
   tf2_ros::TransformListener* camera_map_tf_listener_;
   sensor_msgs::CameraInfo cam_info_msg_;
   unsigned short* depth_frame_ = nullptr;
-  unsigned short* ir_frame_ = nullptr;
+  unsigned short* ab_frame_ = nullptr;
   short* xyz_frame_ = nullptr;
   short* input_xyz_frame_ = nullptr;
   short* output_xyz_frame_ = nullptr;
   int compressed_depth_frame_size_ = 0;
-  int compressed_ir_frame_size_ = 0;
+  int compressed_ab_frame_size_ = 0;
   unsigned char* compressed_depth_frame_ = nullptr;
-  unsigned char* compressed_ir_frame_ = nullptr;
+  unsigned char* compressed_ab_frame_ = nullptr;
   ros::Publisher depth_image_publisher_;
-  ros::Publisher ir_image_publisher_;
+  ros::Publisher ab_image_publisher_;
   ros::Publisher xyz_image_publisher_;
   ros::Publisher depth_info_publisher_;
   ros::Publisher floor_mask_publisher_;
@@ -482,11 +494,11 @@ private:
 
   void publishPointCloud(short* xyz_frame);
 
-  void publishImageAndCameraInfo(unsigned short* depth_frame, unsigned short* ir_frame, unsigned char* floor_mask_frame,
+  void publishImageAndCameraInfo(unsigned short* depth_frame, unsigned short* ab_frame, unsigned char* floor_mask_frame,
                                  short* xyz_frame);
 
   void publishImageAndCameraInfo(unsigned char* compressed_depth_frame, int compressed_depth_frame_size,
-                                 unsigned char* compressed_ir_frame, int compressed_ir_frame_size,
+                                 unsigned char* compressed_ab_frame, int compressed_ab_frame_size,
                                  unsigned char* compressed_floor_mask_frame, int compressed_floor_mask_frame_size,
                                  short* xyz_frame);
 
@@ -503,7 +515,7 @@ private:
   void rotatePointCloud(short* input_point_cloud, short* rotated_point_cloud, CameraExtrinsics* camera_extrinsics,
                         int image_width, int image_height);
 
-  cv::Mat getFloorDetectionOutput(unsigned short* depth_frame_with_floor, unsigned short* ir_frame,
+  cv::Mat getFloorDetectionOutput(unsigned short* depth_frame_with_floor, unsigned short* ab_frame,
                                   unsigned char* floor_mask_8bit);
 };
 

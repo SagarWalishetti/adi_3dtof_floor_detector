@@ -74,7 +74,7 @@ bool ADI3DToFFloorDetector::runFloorDetection()
   updateDynamicReconfigureVariablesProcessThread();
 
   // Get frame from sensor.
-  ADTF31xxSensorFrameInfo* inframe;
+  ADTF31xxSensorFrameInfo* inframe = nullptr;
   try
   {
     inframe = floorDetectorIOThreadGetNextFrame();
@@ -90,12 +90,12 @@ bool ADI3DToFFloorDetector::runFloorDetection()
   }
 
   depth_frame_ = inframe->getDepthFrame();
-  ir_frame_ = inframe->getIRFrame();
+  ab_frame_ = inframe->getIRFrame();
   xyz_frame_ = inframe->getXYZFrame();
   compressed_depth_frame_ = inframe->getCompressedDepthFrame();
   compressed_depth_frame_size_ = inframe->getCompressedDepthFrameSize();
 
-  if ((depth_frame_ == nullptr) || (ir_frame_ == nullptr) || (xyz_frame_ == nullptr) ||
+  if ((depth_frame_ == nullptr) || (ab_frame_ == nullptr) || (xyz_frame_ == nullptr) ||
       ((enable_compression_op_image_topics_) && (compressed_depth_frame_ == nullptr)))
   {
     return false;
@@ -128,7 +128,7 @@ bool ADI3DToFFloorDetector::runFloorDetection()
   }
 
   // nullptr checks
-  if ((new_output_frame->depth_frame_ == nullptr) || (new_output_frame->ir_frame_ == nullptr) ||
+  if ((new_output_frame->depth_frame_ == nullptr) || (new_output_frame->ab_frame_ == nullptr) ||
       (new_output_frame->xyz_frame_ == nullptr))
   {
     return false;
@@ -177,7 +177,7 @@ bool ADI3DToFFloorDetector::runFloorDetection()
     PROFILE_FUNCTION_END(FLOOR_DETECTOR_7_RANSAC_RUN)
   }
 
-  if ((!ransac_floor_detection_status_) && (enable_fallback_floor_detection_) || (!enable_ransac_floor_detection_))
+  if (((!ransac_floor_detection_status_) && (enable_fallback_floor_detection_)) || (!enable_ransac_floor_detection_))
   {
     PROFILE_FUNCTION_START(FLOOR_DETECTOR_8_FALLBACK_RUN)
     if (!ransac_floor_detection_status_)
@@ -202,7 +202,7 @@ bool ADI3DToFFloorDetector::runFloorDetection()
     new_output_frame->ransac_time_ms_ = ransac_time_ms_;
 
     memcpy(new_output_frame->depth_frame_, depth_frame_, image_width_ * image_height_ * sizeof(depth_frame_[0]));
-    memcpy(new_output_frame->ir_frame_, ir_frame_, image_width_ * image_height_ * sizeof(ir_frame_[0]));
+    memcpy(new_output_frame->ab_frame_, ab_frame_, image_width_ * image_height_ * sizeof(ab_frame_[0]));
     memcpy(new_output_frame->xyz_frame_, input_xyz_frame_, 3 * image_width_ * image_height_ * sizeof(xyz_frame_[0]));
     memcpy(new_output_frame->floor_mask_8bit_, floor_mask_, image_width_ * image_height_ * sizeof(floor_mask_[0]));
 
